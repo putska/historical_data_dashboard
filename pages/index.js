@@ -1,118 +1,326 @@
-import Image from "next/image";
-import { Inter } from "next/font/google";
-
-const inter = Inter({ subsets: ["latin"] });
+import ControlChart from "./ControlChart";
+import LineChart from "./LineChart";
+import ControlChartByDiv from "./ControlChartByDiv";
+import LineChartByDiv from "./LineChartByDiv";
+import { useState, useEffect } from "react";
+import useStore from "@/store";
+import axios from "axios"; // Import axios
 
 export default function Home() {
-  return (
-    <main
-      className={`flex min-h-screen flex-col items-center justify-between p-24 ${inter.className}`}
-    >
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">pages/index.js</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+  const store = useStore();
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch data and store it in Zustand
+  useEffect(() => {
+    setIsLoading(true);
+
+    axios
+      .get(
+        "https://historical-data-42810-default-rtdb.firebaseio.com/serverDataByDiv.json"
+      )
+      // .get(
+      //   "http://wwweb/portal/desktopmodules/ww_Global/API/Misc/GetEstVActByDiv"
+      // )
+      .then((response) => {
+        // Filter and transform the data based on the filters
+        const filteredDataByDiv = response.data
+          .filter(
+            (item) =>
+              item.Job_Year >= store.startYear && item.Job_Year <= store.endYear
+          )
+          .filter(
+            (item) =>
+              store.location === "All" || item.Location === store.location
+          )
+          .filter(
+            (item) =>
+              store.CostCodePre === "All" ||
+              item.CostCodePre === store.CostCodePre
+          )
+          .reduce((acc, item) => {
+            const existing = acc.find(
+              (element) => element.Job_Year === item.Job_Year
+            );
+            if (existing) {
+              existing.Remaining += item.Remaining;
+            } else {
+              acc.push(item);
+            }
+            return acc;
+          }, [])
+          .map((item) => {
+            if (store.chartType === "Control Chart") {
+              return {
+                Job_Year: item.Job_Year,
+                PositiveRemaining: item.Remaining,
+              };
+            } else {
+              return {
+                Job_Year: item.Job_Year,
+                //Job_Name: item.Job_Name,
+                PositiveRemaining: item.Remaining >= 0 ? item.Remaining : 0,
+                NegativeRemaining: item.Remaining < 0 ? item.Remaining : 0,
+              };
+            }
+          });
+
+        store.setDataByDiv(filteredDataByDiv);
+
+        if (
+          (store.chartType === "Control Chart") &
+          (store.filterType === "By Year")
+        ) {
+          calculateControlLimits(filteredDataByDiv);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching data:", error);
+      });
+    //} else {
+    axios
+      .get(
+        "https://historical-data-42810-default-rtdb.firebaseio.com/serverData.json"
+      )
+      // .get("http://wwweb/portal/desktopmodules/ww_Global/API/Misc/GetEstVAct")
+      .then((response) => {
+        // Filter and transform the data based on the filters
+        const filteredData = response.data
+          .filter(
+            (item) =>
+              item.Job_Year >= store.startYear && item.Job_Year <= store.endYear
+          )
+          .filter(
+            (item) =>
+              store.location === "All" || item.Location === store.location
+          )
+          .filter(
+            (item) =>
+              store.CostCodePre === "All" ||
+              item.CostCodePre === store.CostCodePre
+          )
+          .reduce((acc, item) => {
+            const existing = acc.find(
+              (element) => element.Job_Name === item.Job_Name
+            );
+            if (existing) {
+              existing.Remaining += item.Remaining;
+            } else {
+              acc.push(item);
+            }
+            return acc;
+          }, [])
+          .map((item) => {
+            if (store.chartType === "Control Chart") {
+              return {
+                Job_Year: item.Job_Year,
+                Job_Name: item.Job_Name,
+                PositiveRemaining: item.Remaining,
+              };
+            } else {
+              return {
+                Job_Year: item.Job_Year,
+                Job_Name: item.Job_Name,
+                PositiveRemaining: item.Remaining >= 0 ? item.Remaining : 0,
+                NegativeRemaining: item.Remaining < 0 ? item.Remaining : 0,
+              };
+            }
+          });
+        store.setData(filteredData);
+        if (
+          (store.chartType === "Control Chart") &
+          (store.filterType === "By Job")
+        ) {
+          calculateControlLimits(filteredData);
+        }
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error("Error fetching data:", error);
+      });
+    //}
+  }, [
+    store.startYear,
+    store.endYear,
+    store.location,
+    store.CostCodePre,
+    store.chartType,
+    store.filterType,
+  ]);
+
+  // Define the function outside the useEffect hook
+  const calculateControlLimits = (data) => {
+    // Calculate the mean of the data
+    const mean =
+      data.reduce((sum, item) => sum + item.PositiveRemaining, 0) / data.length;
+    store.setMean(mean);
+    console.log("mean: ", mean);
+    // Calculate the standard deviation of the data
+    const standardDeviation = Math.sqrt(
+      data.reduce(
+        (sum, item) => sum + Math.pow(item.PositiveRemaining - store.mean, 2),
+        0
+      ) / data.length
+    );
+    store.setStandardDeviation(standardDeviation);
+    console.log("standardDeviation: ", store.standardDeviation);
+
+    // Calculate the control limits
+    const upperControlLimit = store.mean + 3 * standardDeviation;
+    const lowerControlLimit = store.mean - 3 * standardDeviation;
+
+    // Set the control limits
+    store.setUpperControlLimit(upperControlLimit);
+    store.setLowerControlLimit(lowerControlLimit);
+
+    const minValue = Math.min(
+      store.lowerControlLimit,
+      Math.min(...store.data.map((item) => item.PositiveRemaining))
+    );
+    const maxValue = Math.max(
+      store.upperControlLimit,
+      Math.max(...store.data.map((item) => item.PositiveRemaining))
+    );
+    store.setMinValue(minValue);
+    store.setMaxValue(maxValue);
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  } else {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-8">
+        <div className="bg-blue-400 text-white p-4 rounded-lg shadow-lg">
+          <h1 className="text-2xl mb-4">Chart Type</h1>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              value="Control Chart"
+              checked={store.chartType === "Control Chart"}
+              onChange={(e) => store.setChartType(e.target.value)}
             />
-          </a>
+            Control Chart
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              value="Bar Chart"
+              checked={store.chartType === "Bar Chart"}
+              onChange={(e) => store.setChartType(e.target.value)}
+            />
+            Bar Chart
+          </label>
         </div>
+        <div className="bg-blue-400 text-white p-4 rounded-lg shadow-lg">
+          <h1 className="text-2xl mb-4">Job or Year</h1>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              value="By Job"
+              checked={store.filterType === "By Job"}
+              onChange={(e) => store.setFilterType(e.target.value)}
+            />
+            By Job
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              value="By Year"
+              checked={store.filterType === "By Year"}
+              onChange={(e) => store.setFilterType(e.target.value)}
+            />
+            By Year
+          </label>
+        </div>
+        <div className="bg-blue-400 text-white p-4 rounded-lg shadow-lg">
+          <h1 className="text-2xl mb-4">Filters</h1>
+          <label className="flex items-center mb-4">
+            Start Year:
+            <select
+              value={store.startYear}
+              onChange={(e) => store.setStartYear(Number(e.target.value))}
+              className="text-black ml-2"
+            >
+              {/* Generate options for years */}
+              {[...Array(10)].map((_, i) => (
+                <option key={i} value={2014 + i}>
+                  {2014 + i}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center mb-4">
+            End Year:
+            <select
+              value={store.endYear}
+              onChange={(e) => store.setEndYear(Number(e.target.value))}
+              className="text-black ml-2"
+            >
+              {/* Generate options for years */}
+              {[...Array(10)].map((_, i) => (
+                <option key={i} value={2014 + i}>
+                  {2014 + i}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center mb-4">
+            Location:
+            <select
+              value={store.location}
+              onChange={(e) => store.setLocation(e.target.value)}
+              className="text-black ml-2"
+            >
+              <option value="All">All</option>
+              <option value="Fremont">Fremont</option>
+              <option value="Los Angeles">Los Angeles</option>
+              <option value="Las Vegas">Las Vegas</option>
+            </select>
+          </label>
+          <label className="flex items-center mb-4">
+            Cost Code:
+            <select
+              value={store.CostCodePre}
+              onChange={(e) => store.setCostCodePre(e.target.value)}
+              className="text-black ml-2"
+            >
+              <option value="All">All</option>
+              {/* Add options for CostCodePre here */}
+              <option value="474">474 - Insulated Glass Units</option>
+              <option value="493">493 - Dies</option>
+              <option value="505">505 - Stock Length Metal</option>
+              <option value="511">511 - Aluminum Panels</option>
+              <option value="516">516 - Equipment</option>
+              <option value="550">550 - Shop Labor</option>
+              <option value="551">551 - Field Labor</option>
+              <option value="565">565 - Subcontractors</option>
+              {/* ... */}
+            </select>
+          </label>
+        </div>
+
+        {store.chartType === "Control Chart" &&
+          store.filterType === "By Job" && (
+            <div className="col-span-full md:col-span-3">
+              <ControlChart />
+            </div>
+          )}
+        {store.chartType === "Control Chart" &&
+          store.filterType === "By Year" && (
+            <div className="col-span-full md:col-span-3">
+              <ControlChartByDiv />
+            </div>
+          )}
+        {store.chartType === "Bar Chart" && store.filterType === "By Job" && (
+          <div className="col-span-full md:col-span-3">
+            <LineChart />
+          </div>
+        )}
+        {store.chartType === "Bar Chart" && store.filterType === "By Year" && (
+          <div className="col-span-full md:col-span-3">
+            <LineChartByDiv />
+          </div>
+        )}
       </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700/10 after:dark:from-sky-900 after:dark:via-[#0141ff]/40 before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Discover and deploy boilerplate example Next.js&nbsp;projects.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50 text-balance`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    );
+  }
 }
