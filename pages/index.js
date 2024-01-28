@@ -32,11 +32,84 @@ export default function Home() {
             (item) =>
               store.location === "All" || item.Location === store.location
           )
-          .filter(
-            (item) =>
-              store.CostCodePre === "All" ||
-              item.CostCodePre === store.CostCodePre
-          )
+          .filter((item) => {
+            if (store.CostCodePre === "Materials") {
+              // Filter for all material cost codes
+              return [
+                "456",
+                "468",
+                "470",
+                "471",
+                "472",
+                "473",
+                "474",
+                "475",
+                "476",
+                "478",
+                "481",
+                "489",
+                "490",
+                "491",
+                "492",
+                "493",
+                "495",
+                "496",
+                "497",
+                "498",
+                "501",
+                "503",
+                "504",
+                "505",
+                "506",
+                "507",
+                "508",
+                "509",
+                "510",
+                "511",
+                "512",
+                "513",
+                "514",
+                "515",
+                "516",
+                "517",
+                "520",
+                "523",
+                "526",
+              ].includes(item.CostCodePre);
+            } else {
+              // Filter based on the selected CostCodePre
+              return (
+                item.CostCodePre === store.CostCodePre ||
+                (store.CostCodePre === "PMD&E" &&
+                  [
+                    "488",
+                    "494",
+                    "497",
+                    "544",
+                    "568",
+                    "569",
+                    "570",
+                    "584",
+                  ].includes(item.CostCodePre))
+              );
+            }
+          })
+          .map((item) => {
+            let Remaining = item.Remaining;
+
+            // Check if it's cost code 568, 569, or 570 and apply the 30% increase
+            if (
+              store.CostCodePre === "PMD&E" &&
+              ["568", "569", "570"].includes(item.CostCodePre)
+            ) {
+              Remaining = item.Budget - item.to_date * 1.3;
+            }
+
+            return {
+              Job_Year: item.Job_Year,
+              Remaining,
+            };
+          })
           .reduce((acc, item) => {
             const existing = acc.find(
               (element) => element.Job_Year === item.Job_Year
@@ -49,19 +122,15 @@ export default function Home() {
             return acc;
           }, [])
           .map((item) => {
-            if (store.chartType === "Control Chart") {
-              return {
-                Job_Year: item.Job_Year,
-                PositiveRemaining: item.Remaining,
-              };
-            } else {
-              return {
-                Job_Year: item.Job_Year,
-                //Job_Name: item.Job_Name,
-                PositiveRemaining: item.Remaining >= 0 ? item.Remaining : 0,
-                NegativeRemaining: item.Remaining < 0 ? item.Remaining : 0,
-              };
-            }
+            const PositiveRemaining = item.Remaining >= 0 ? item.Remaining : 0;
+            const NegativeRemaining = item.Remaining < 0 ? item.Remaining : 0;
+            const Remaining = item.Remaining;
+            return {
+              Job_Year: item.Job_Year,
+              PositiveRemaining,
+              NegativeRemaining,
+              Remaining,
+            };
           });
 
         store.setDataByDiv(filteredDataByDiv);
@@ -81,7 +150,6 @@ export default function Home() {
       .get(
         "https://historical-data-42810-default-rtdb.firebaseio.com/serverData.json"
       )
-      // .get("http://wwweb/portal/desktopmodules/ww_Global/API/Misc/GetEstVAct")
       .then((response) => {
         // Filter and transform the data based on the filters
         const filteredData = response.data
@@ -93,11 +161,85 @@ export default function Home() {
             (item) =>
               store.location === "All" || item.Location === store.location
           )
-          .filter(
-            (item) =>
-              store.CostCodePre === "All" ||
-              item.CostCodePre === store.CostCodePre
-          )
+          .filter((item) => {
+            if (store.CostCodePre === "Materials") {
+              // Filter for all material cost codes
+              return [
+                "456",
+                "468",
+                "470",
+                "471",
+                "472",
+                "473",
+                "474",
+                "475",
+                "476",
+                "478",
+                "481",
+                "489",
+                "490",
+                "491",
+                "492",
+                "493",
+                "495",
+                "496",
+                "497",
+                "498",
+                "501",
+                "503",
+                "504",
+                "505",
+                "506",
+                "507",
+                "508",
+                "509",
+                "510",
+                "511",
+                "512",
+                "513",
+                "514",
+                "515",
+                "516",
+                "517",
+                "520",
+                "523",
+                "526",
+              ].includes(item.CostCodePre);
+            } else {
+              // Filter based on the selected CostCodePre
+              return (
+                item.CostCodePre === store.CostCodePre ||
+                (store.CostCodePre === "PMD&E" &&
+                  [
+                    "488",
+                    "494",
+                    "497",
+                    "544",
+                    "568",
+                    "569",
+                    "570",
+                    "584",
+                  ].includes(item.CostCodePre))
+              );
+            }
+          })
+          .map((item) => {
+            let Remaining = item.Remaining;
+
+            // Check if it's cost code 568, 569, or 570 and apply the 30% increase
+            if (
+              store.CostCodePre === "PMD&E" &&
+              ["568", "569", "570"].includes(item.CostCodePre)
+            ) {
+              Remaining = item.Budget - item.to_date * 1.3;
+            }
+
+            return {
+              Job_Year: item.Job_Year,
+              Job_Name: item.Job_Name,
+              Remaining,
+            };
+          })
           .reduce((acc, item) => {
             const existing = acc.find(
               (element) => element.Job_Name === item.Job_Name
@@ -110,25 +252,22 @@ export default function Home() {
             return acc;
           }, [])
           .map((item) => {
-            if (store.chartType === "Control Chart") {
-              return {
-                Job_Year: item.Job_Year,
-                Job_Name: item.Job_Name,
-                PositiveRemaining: item.Remaining,
-              };
-            } else {
-              return {
-                Job_Year: item.Job_Year,
-                Job_Name: item.Job_Name,
-                PositiveRemaining: item.Remaining >= 0 ? item.Remaining : 0,
-                NegativeRemaining: item.Remaining < 0 ? item.Remaining : 0,
-              };
-            }
+            const PositiveRemaining = item.Remaining >= 0 ? item.Remaining : 0;
+            const NegativeRemaining = item.Remaining < 0 ? item.Remaining : 0;
+            const Remaining = item.Remaining;
+            return {
+              Job_Year: item.Job_Year,
+              Job_Name: item.Job_Name,
+              PositiveRemaining,
+              NegativeRemaining,
+              Remaining,
+            };
           });
+
         store.setData(filteredData);
         if (
-          (store.chartType === "Control Chart") &
-          (store.filterType === "By Job")
+          store.chartType === "Control Chart" &&
+          store.filterType === "By Job"
         ) {
           calculateControlLimits(filteredData);
         }
@@ -137,7 +276,6 @@ export default function Home() {
       .catch((error) => {
         console.error("Error fetching data:", error);
       });
-    //}
   }, [
     store.startYear,
     store.endYear,
@@ -151,35 +289,32 @@ export default function Home() {
   const calculateControlLimits = (data) => {
     // Calculate the mean of the data
     const mean =
-      data.reduce((sum, item) => sum + item.PositiveRemaining, 0) / data.length;
-    store.setMean(mean);
-    console.log("mean: ", mean);
+      data.reduce((sum, item) => sum + item.Remaining, 0) / data.length;
+
     // Calculate the standard deviation of the data
     const standardDeviation = Math.sqrt(
-      data.reduce(
-        (sum, item) => sum + Math.pow(item.PositiveRemaining - store.mean, 2),
-        0
-      ) / data.length
+      data.reduce((sum, item) => sum + Math.pow(item.Remaining - mean, 2), 0) /
+        data.length
     );
-    store.setStandardDeviation(standardDeviation);
-    console.log("standardDeviation: ", store.standardDeviation);
 
     // Calculate the control limits
-    const upperControlLimit = store.mean + 3 * standardDeviation;
-    const lowerControlLimit = store.mean - 3 * standardDeviation;
-
-    // Set the control limits
-    store.setUpperControlLimit(upperControlLimit);
-    store.setLowerControlLimit(lowerControlLimit);
+    const upperControlLimit = mean + 3 * standardDeviation;
+    const lowerControlLimit = mean - 3 * standardDeviation;
 
     const minValue = Math.min(
-      store.lowerControlLimit,
-      Math.min(...store.data.map((item) => item.PositiveRemaining))
+      lowerControlLimit,
+      Math.min(...data.map((item) => item.Remaining))
     );
     const maxValue = Math.max(
-      store.upperControlLimit,
-      Math.max(...store.data.map((item) => item.PositiveRemaining))
+      upperControlLimit,
+      Math.max(...data.map((item) => item.Remaining))
     );
+
+    // Set the state variables at the end
+    store.setMean(mean);
+    store.setStandardDeviation(standardDeviation);
+    store.setUpperControlLimit(upperControlLimit);
+    store.setLowerControlLimit(lowerControlLimit);
     store.setMinValue(minValue);
     store.setMaxValue(maxValue);
   };
@@ -283,16 +418,29 @@ export default function Home() {
               onChange={(e) => store.setCostCodePre(e.target.value)}
               className="text-black ml-2"
             >
-              <option value="All">All</option>
               {/* Add options for CostCodePre here */}
+              <option value="PMD&E">PMD&E</option>
+              <option value="Materials">All Materials</option>
               <option value="474">474 - Insulated Glass Units</option>
+              <option value="489">489 - Angles/Kickers/Reinforcement</option>
+              <option value="490">490 - Embeds</option>
+              <option value="491">491 - Packaged Buy-outs</option>
+              <option value="492">492 - Mock-ups</option>
               <option value="493">493 - Dies</option>
               <option value="505">505 - Stock Length Metal</option>
+              <option value="507">507 - Door Hardware</option>
+              <option value="508">508 - Sealants</option>
+              <option value="509">509 - Gaskets</option>
+              <option value="510">508 - Fasteners</option>
               <option value="511">511 - Aluminum Panels</option>
-              <option value="516">516 - Equipment</option>
+              <option value="516">516 - Equipment Rental</option>
+              <option value="517">517 - Composite Panels</option>
               <option value="550">550 - Shop Labor</option>
               <option value="551">551 - Field Labor</option>
               <option value="565">565 - Subcontractors</option>
+              <option value="568">568 - Takeoff</option>
+              <option value="569">569 - PMs</option>
+              <option value="570">570 - Drafting</option>
               {/* ... */}
             </select>
           </label>

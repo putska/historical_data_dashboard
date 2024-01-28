@@ -23,7 +23,7 @@ function ControlChart() {
       <ResponsiveContainer width="100%" height={400}>
         <LineChart
           data={store.dataByDiv}
-          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 20, right: 30, left: 30, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="Job_Year" />
@@ -32,7 +32,13 @@ function ControlChart() {
               Math.round(store.lowerControlLimit * 1.15),
               Math.round(store.upperControlLimit * 1.15),
             ]}
-            tickFormatter={(value) => `$${Math.round(value).toLocaleString()}`}
+            tickFormatter={(value) => {
+              if (store.CostCodePre !== "550" && store.CostCodePre !== "551") {
+                return `$${Math.round(value).toLocaleString()}`;
+              } else {
+                return `${Math.round(value).toLocaleString()} Hours`;
+              }
+            }}
           />
           ;
           <Tooltip
